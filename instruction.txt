@@ -1,0 +1,13 @@
+pip install -r requirements.txt
+
+pip install diffusers accelerate safetensors transformers torch
+
+
+
+
+pip install --upgrade transformers diffusers accelerate safetensors huggingface-hub
+pip install pillow
+pip install torch torchvision torchaudio
+pip install "tokenizers<0.22,>=0.21"
+
+python main.py

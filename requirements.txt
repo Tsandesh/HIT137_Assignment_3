@@ -1,0 +1,8 @@
+diffusers>=0.19.0
+transformers>=4.45.0
+torch>=2.0.0
+accelerate>=0.20.0
+safetensors
+huggingface_hub
+Pillow>=10.0.0
+tk  # optional; often comes with Python
