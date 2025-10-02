@@ -1,5 +1,5 @@
 import os
-from PIL import Image, ImageOps
+from PIL import ImageOps
 
 def detect_device(torch):
     """Return best device string given torch availability."""

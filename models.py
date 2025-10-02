@@ -7,14 +7,13 @@ Model wrappers demonstrating:
 
 from abc import ABC, abstractmethod
 from transformers import pipeline as hf_pipeline
-# diffusers import is optional until text->image is used
 try:
     from diffusers import StableDiffusionPipeline
 except Exception:
     StableDiffusionPipeline = None
 
 import torch
-from utils import detect_device, save_pil_image
+from utils import save_pil_image
 
 # Abstract Base Model Class
 
