@@ -336,3 +336,102 @@ class AIGUI(BaseGUI, OOPConcepts):
         else:
             messagebox.showerror("Unsupported", f"Unsupported model: {model_name}")
             return None
+
+    # worker thread executes model.run and posts results to the queue
+    def _run_model_thread(self, model_name, input_payload):
+        try:
+            model = self._models[model_name]
+            if not model._is_loaded:
+                model.load(device=self._device)
+            res = model.run(input_payload)
+            self._result_queue.put(("run_result", {"model": model_name, "result": res}))
+        except Exception as e:
+            self._result_queue.put(("error", f"Error running {model_name}: {e}"))
+
+    # poll queue frequently to update UI from main thread
+    def _poll_results(self):
+        try:
+            while True:
+                kind, payload = self._result_queue.get_nowait()
+                if kind == "load_ok":
+                    self._append_output(payload)
+                    self._refresh_model_info()
+                elif kind == "run_result":
+                    self._handle_model_result(payload)
+                elif kind == "chain":
+                    self._handle_chain_result(payload)
+                elif kind == "error":
+                    self._append_output(f"[ERROR] {payload}")
+                    messagebox.showerror("Error", str(payload))
+        except queue.Empty:
+            pass
+        # schedule next poll
+        self.after(200, self._poll_results)
+
+    # result handlers
+    def _handle_model_result(self, payload):
+        model_name = payload.get("model")
+        res = payload.get("result")
+        if res["type"] == "image":
+            path = res["path"]
+            self._append_output(f"{model_name} generated image: {path}")
+            self._display_image(path)
+        elif res["type"] == "classifications":
+            lines = [f"{model_name} results:"]
+            for r in res["results"]:
+                lines.append(f"- {r.get('label')}: {r.get('score'):.3f}")
+            self._append_output("\n".join(lines))
+        else:
+            self._append_output(f"{model_name} returned: {res}")
+
+    def _handle_chain_result(self, payload):
+        img_path = payload["image_path"]
+        cls_res = payload["classifications"]
+        self._append_output(f"Generated image saved at: {img_path}")
+        self._display_image(img_path)
+        # show classification results
+        lines = ["Chain classification results:"]
+        for r in cls_res:
+            lines.append(f"- {r.get('label')}: {r.get('score'):.3f}")
+        self._append_output("\n".join(lines))
+
+    # -------------------------
+    # UI update helpers
+    # -------------------------
+    def _append_output(self, text):
+        self.output_text.insert(tk.END, text + "\n\n")
+        self.output_text.see(tk.END)
+
+    def _display_image(self, path):
+        try:
+            img = Image.open(path)
+            thumb = make_thumbnail(img, size=(420, 320))
+            photo = ImageTk.PhotoImage(thumb)
+            self._last_photoimage = photo  # keep reference
+            self.output_image_label.config(image=photo, text="")
+        except Exception as e:
+            self._append_output(f"Could not display image: {e}")
+
+    # refresh bottom-left model info text
+    def _refresh_model_info(self):
+        name = self.model_var.get()
+        model = self._models[name]
+        info = model.get_info()
+        text = (
+            f"Model Name: {info['name']}\n"
+            f"Category: {info['category']}\n"
+            f"Description: {info['description']}\n"
+            f"Loaded: {info['loaded']}\n"
+        )
+        self.model_info_text.config(state="normal")
+        self.model_info_text.delete("1.0", tk.END)
+        self.model_info_text.insert("1.0", text)
+        self.model_info_text.config(state="disabled")
+
+    # refresh bottom-right OOP explanation text (calls overridden method)
+    def _refresh_oop_explanation(self):
+        explanation = self.explanation()  # overridden method from OOPConcepts
+        self.oop_explanation_text.config(state="normal")
+        self.oop_explanation_text.delete("1.0", tk.END)
+        self.oop_explanation_text.insert("1.0", explanation)
+        self.oop_explanation_text.config(state="disabled")
