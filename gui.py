@@ -171,3 +171,168 @@ class AIGUI(BaseGUI, OOPConcepts):
         # fill OOP explanation initially using the OOPConcepts.explanation method (overridden)
         self._refresh_oop_explanation()
 
+    # -------------------------
+    # UI helpers
+    # -------------------------
+    def _show_about(self):
+        messagebox.showinfo("About", "Tkinter AI GUI\nDemonstration of OOP concepts + Hugging Face models.")
+
+    def _on_input_mode_change(self):
+        mode = self.input_mode.get()
+        if mode == "Text":
+            self.input_text.config(state="normal")
+        else:
+            # keep text editable but user likely will use Browse
+            self.input_text.config(state="normal")
+        # reset thumbnail label if switching away
+        if mode != "Image":
+            self.thumbnail_label.config(text="(no image selected)")
+
+    def _browse_input(self):
+        mode = self.input_mode.get()
+        if mode == "Text":
+            # optional: let user choose a .txt file to load into text area
+            path = filedialog.askopenfilename(title="Open text file", filetypes=[("Text files","*.txt"),("All files","*.*")])
+            if path:
+                with open(path, "r", encoding="utf-8") as f:
+                    txt = f.read()
+                self.input_text.delete("1.0", tk.END)
+                self.input_text.insert("1.0", txt)
+        else:
+            path = filedialog.askopenfilename(title="Open image", filetypes=[("Image files","*.png;*.jpg;*.jpeg;*.bmp;*.gif"),("All files","*.*")])
+            if path:
+                # show thumbnail
+                try:
+                    img = Image.open(path)
+                    thumb = make_thumbnail(img)
+                    photo = ImageTk.PhotoImage(thumb)
+                    self._last_photoimage = photo
+                    self.thumbnail_label.config(image=photo, text="")
+                    # store selected path in an attribute
+                    self._selected_input_path = path
+                except Exception as e:
+                    messagebox.showerror("Error", f"Could not open image: {e}")
+
+    def _clear_input(self):
+        self.input_text.delete("1.0", tk.END)
+        self.thumbnail_label.config(image="", text="(no image selected)")
+        self.output_text.delete("1.0", tk.END)
+        self.output_image_label.config(image="", text="(no image output)")
+        self._last_photoimage = None
+
+    # -------------------------
+    # Model load/run actions
+    # -------------------------
+    def load_selected_model(self):
+        name = self.model_var.get()
+        model = self._models[name]
+        self._append_output(f"Loading {name} on device {self._device} ...")
+        # load in background
+        t = threading.Thread(target=self._load_model_thread, args=(name,), daemon=True)
+        t.start()
+
+    def load_all_models(self):
+        # load both in a thread
+        self._append_output("Loading all models (this may take a while)...")
+        t = threading.Thread(target=self._load_all_thread, daemon=True)
+        t.start()
+
+    def _load_model_thread(self, name):
+        try:
+            model = self._models[name]
+            model.load(device=self._device)
+            self._result_queue.put(("load_ok", f"{name} loaded."))
+        except Exception as e:
+            self._result_queue.put(("error", f"Error loading {name}: {e}"))
+
+    def _load_all_thread(self):
+        errors = []
+        for name, model in self._models.items():
+            try:
+                model.load(device=self._device)
+                self._result_queue.put(("load_ok", f"{name} loaded."))
+            except Exception as e:
+                errors.append((name, str(e)))
+        if errors:
+            self._result_queue.put(("error", f"Errors while loading: {errors}"))
+
+    @log_decorator
+    def run_selected_model(self):
+        """Run the model that is currently selected in the dropdown."""
+        name = self.model_var.get()
+        input_payload = self._gather_input_for_model(name)
+        if input_payload is None:
+            return
+        self._append_output(f"Running {name} ...")
+        t = threading.Thread(target=self._run_model_thread, args=(name, input_payload), daemon=True)
+        t.start()
+
+    @log_decorator
+    def run_alternate_model(self):
+        """Run the other model (demonstrates chaining / polymorphism).
+        If Text->Image is selected, alt runs ImageClass on generated image, etc.
+        """
+        selected = self.model_var.get()
+        alt_name = [n for n in self._models.keys() if n != selected][0]
+        # if we have an on-disk generated image, try classify it
+        if selected == "Text-to-Image":
+            # run text->image first, then classify
+            prompt = self.input_text.get("1.0", tk.END).strip()
+            if not prompt:
+                messagebox.showwarning("Input required", "Enter a prompt to generate an image for chaining.")
+                return
+            self._append_output("Running Text->Image and then Image Classification on the generated image ...")
+            t = threading.Thread(target=self._chain_text_to_image_then_classify, args=(prompt,), daemon=True)
+            t.start()
+        else:
+            # run the alternate directly on selected input
+            input_payload = self._gather_input_for_model(alt_name)
+            if input_payload is None:
+                return
+            self._append_output(f"Running alternate model: {alt_name} ...")
+            t = threading.Thread(target=self._run_model_thread, args=(alt_name, input_payload), daemon=True)
+            t.start()
+
+    def _chain_text_to_image_then_classify(self, prompt):
+        try:
+            # ensure both models loaded
+            t2i = self._models["Text-to-Image"]
+            cls = self._models["Image Classification"]
+            if not t2i._is_loaded:
+                t2i.load(device=self._device)
+            res = t2i.run(prompt)
+            # res contains path and pil_image
+            img_path = res.get("path")
+            # load classification model
+            if not cls._is_loaded:
+                cls.load()
+            cls_res = cls.run(img_path)
+            self._result_queue.put(("chain", {"image_path": img_path, "classifications": cls_res}))
+        except Exception as e:
+            self._result_queue.put(("error", f"Chain error: {e}"))
+
+    def _gather_input_for_model(self, model_name):
+        mode = self.input_mode.get()
+        if model_name == "Text-to-Image":
+            if mode != "Text":
+                # if image mode, try to get text from text box anyway
+                self._append_output("Text-to-Image expects a text prompt. Using text input box.")
+            prompt = self.input_text.get("1.0", tk.END).strip()
+            if not prompt:
+                messagebox.showwarning("No prompt", "Please enter a text prompt for Text-to-Image.")
+                return None
+            return prompt
+        elif model_name == "Image Classification":
+            # prefer a selected image path, else check if user pasted a path in input text
+            img_path = getattr(self, "_selected_input_path", None)
+            if not img_path:
+                text_val = self.input_text.get("1.0", tk.END).strip()
+                if os.path.exists(text_val):
+                    img_path = text_val
+            if not img_path:
+                messagebox.showwarning("No image", "Please select an image for classification (Browse -> Image).")
+                return None
+            return img_path
+        else:
+            messagebox.showerror("Unsupported", f"Unsupported model: {model_name}")
+            return None
