@@ -103,9 +103,9 @@ class AIGUI(BaseGUI, OOPConcepts):
         self.input_mode = tk.StringVar(value="Text")
         mode_frame = ttk.Frame(left)
         mode_frame.pack(anchor="w")
+
         ttk.Radiobutton(mode_frame, text="Text", variable=self.input_mode, value="Text", command=self._on_input_mode_change).pack(side="left")
         ttk.Radiobutton(mode_frame, text="Image", variable=self.input_mode, value="Image", command=self._on_input_mode_change).pack(side="left")
-
         ttk.Button(mode_frame, text="Browse", command=self._browse_input).pack(side="left", padx=6)
 
         # text input area
