@@ -1,2 +1,3 @@
 tk  # optional; often comes with Python
 torch>=2.0.0
+transformers
