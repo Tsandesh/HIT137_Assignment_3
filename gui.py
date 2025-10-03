@@ -113,7 +113,7 @@ class AIGUI(BaseGUI, OOPConcepts):
         self.input_text.pack(fill="both", expand=False, pady=(6,0))
 
         # image thumbnail preview under input text
-        self.thumbnail_label = ttk.Label(left, text="(no image selected)")
+        self.thumbnail_label = ttk.Label(left, text="")
         self.thumbnail_label.pack(pady=6)
 
         # buttons row (Run Model 1 / Run Model 2 / Clear)
@@ -165,7 +165,7 @@ class AIGUI(BaseGUI, OOPConcepts):
         self.oop_explanation_text.pack(fill="both", expand=True)
 
         # small notes line
-        notes = ttk.Label(self, text="Notes: Extra notes, instructions, or references.")
+        notes = ttk.Label(self, text="Notes: Please try to select a model before running it.")
         notes.pack(side="bottom", anchor="w", padx=8, pady=(0,8))
 
         # fill OOP explanation initially using the OOPConcepts.explanation method (overridden)
@@ -182,11 +182,7 @@ class AIGUI(BaseGUI, OOPConcepts):
         if mode == "Text":
             self.input_text.config(state="normal")
         else:
-            # keep text editable but user likely will use Browse
-            self.input_text.config(state="normal")
-        # reset thumbnail label if switching away
-        if mode != "Image":
-            self.thumbnail_label.config(text="")
+            self.input_text.config(state="disabled")
 
     def _browse_input(self):
         mode = self.input_mode.get()
