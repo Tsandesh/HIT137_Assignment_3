@@ -120,10 +120,10 @@ class AIGUI(BaseGUI, OOPConcepts):
         btn_frame = ttk.Frame(left)
         btn_frame.pack(fill="x", pady=4)
 
-        self.run1_btn = ttk.Button(btn_frame, text="Run Model 1", command=self.run_selected_model)
+        self.run1_btn = ttk.Button(btn_frame, text="Run Text-to-Image", command=self.run_selected_model)
         self.run1_btn.pack(side="left", padx=4)
 
-        self.run2_btn = ttk.Button(btn_frame, text="Run Model 2", command=self.run_alternate_model)
+        self.run2_btn = ttk.Button(btn_frame, text="Run Image Classification", command=self.run_alternate_model)
         self.run2_btn.pack(side="left", padx=4)
 
         ttk.Button(btn_frame, text="Clear", command=self._clear_input).pack(side="left", padx=4)
