@@ -120,11 +120,11 @@ class AIGUI(BaseGUI, OOPConcepts):
         btn_frame = ttk.Frame(left)
         btn_frame.pack(fill="x", pady=4)
 
-        self.run1_btn = ttk.Button(btn_frame, text="Run Text-to-Image", command=self.run_selected_model)
+        self.run1_btn = ttk.Button(btn_frame, text="Run Model", command=self.run_selected_model)
         self.run1_btn.pack(side="left", padx=4)
 
-        self.run2_btn = ttk.Button(btn_frame, text="Run Image Classification", command=self.run_alternate_model)
-        self.run2_btn.pack(side="left", padx=4)
+        # self.run2_btn = ttk.Button(btn_frame, text="Run Alternate Model", command=self.run_alternate_model)
+        # self.run2_btn.pack(side="left", padx=4)
 
         ttk.Button(btn_frame, text="Clear", command=self._clear_input).pack(side="left", padx=4)
 
@@ -186,7 +186,7 @@ class AIGUI(BaseGUI, OOPConcepts):
             self.input_text.config(state="normal")
         # reset thumbnail label if switching away
         if mode != "Image":
-            self.thumbnail_label.config(text="(no image selected)")
+            self.thumbnail_label.config(text="")
 
     def _browse_input(self):
         mode = self.input_mode.get()
@@ -215,9 +215,9 @@ class AIGUI(BaseGUI, OOPConcepts):
 
     def _clear_input(self):
         self.input_text.delete("1.0", tk.END)
-        self.thumbnail_label.config(image="", text="(no image selected)")
+        self.thumbnail_label.config(image="", text="")
         self.output_text.delete("1.0", tk.END)
-        self.output_image_label.config(image="", text="(no image output)")
+        self.output_image_label.config(image="", text="")
         self._last_photoimage = None
 
     # -------------------------
@@ -225,7 +225,6 @@ class AIGUI(BaseGUI, OOPConcepts):
     # -------------------------
     def load_selected_model(self):
         name = self.model_var.get()
-        model = self._models[name]
         self._append_output(f"Loading {name} on device {self._device} ...")
         # load in background
         t = threading.Thread(target=self._load_model_thread, args=(name,), daemon=True)
